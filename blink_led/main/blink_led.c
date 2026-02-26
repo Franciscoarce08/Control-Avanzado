@@ -1,74 +1,59 @@
 #include <stdio.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "driver/gpio.h"
-
+#include "freertos/freeRTOS.H"
+#include "freertos/task.h"
 #define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
 #include "esp_log.h"
 #include "esp_err.h"
 
-/* ------------------- Configuración ------------------- */
-#define GPIO_LED        GPIO_NUM_2
-#define INTERVALO_MS    1000
+#define LED 2
+static uint8_t led_level = 0;
+static uint8_t count =0;
+static const char *TAG="Arce";
 
-static const char *LOG_TAG = "Control_LED";
-
-/* ------------------- Variables privadas ------------------- */
-static bool estado_actual = false;
-
-/* ------------------- Funciones internas ------------------- */
-
-static esp_err_t configurar_salida(gpio_num_t pin)
-{
-    gpio_config_t config = {
-        .pin_bit_mask = (1ULL << pin),
-        .mode = GPIO_MODE_OUTPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE
-    };
-
-    esp_err_t resultado = gpio_config(&config);
-
-    if (resultado != ESP_OK) {
-        ESP_LOGE(LOG_TAG, "No se pudo configurar el GPIO");
-    } else {
-        ESP_LOGI(LOG_TAG, "GPIO configurado como salida correctamente");
+// Inicializar pin digital
+esp_err_t init_led(void){
+    gpio_reset_pin(LED);  // Reinicia el pin LED
+    esp_err_t err = gpio_set_direction(LED, GPIO_MODE_OUTPUT); // Configura el pin como salida
+    
+    if (err == ESP_OK){
+        ESP_LOGI(TAG, "El led se inicializo correctamente %d", LED); // Log de éxito
+        ESP_LOGD(TAG, "Debug: init_led() regreso ESP-OK");           // Log de debug
+    } else{
+        ESP_LOGE(TAG, "Fallo la inicializacion del led");           // Log de error
     }
-
-    return resultado;
+    return err;
 }
 
-static esp_err_t actualizar_estado(void)
-{
-    estado_actual = !estado_actual;
-
-    ESP_LOGD(LOG_TAG, "Nuevo estado lógico: %d", estado_actual);
-
-    esp_err_t resultado = gpio_set_level(GPIO_LED, estado_actual);
-
-    if (resultado == ESP_OK) {
-        ESP_LOGI(LOG_TAG, "LED %s",
-                 estado_actual ? "ENCENDIDO" : "APAGADO");
-    } else {
-        ESP_LOGW(LOG_TAG, "Fallo al escribir en el pin");
-    }
-
-    return resultado;
+// Cambiar estado del LED
+esp_err_t blink_led(void){
+    ESP_LOGD(TAG, "Debug: parpadeo del, siguiente estado=%u, led_level"); // Debug
+    ESP_LOGI(TAG, "El estado del led cambio");  // Log info
+    led_level=!led_level;
+    return gpio_set_level(LED, led_level); // Cambia el nivel del LED
 }
 
-/* ------------------- Aplicación principal ------------------- */
+void app_main(void){
 
-void app_main(void)
-{
-    // Selección del nivel de log
-    esp_log_level_set(LOG_TAG, ESP_LOG_INFO);
+    esp_log_level_set(TAG,ESP_LOG_DEBUG);  // Configura el nivel de logs
 
-    ESP_ERROR_CHECK(configurar_salida(GPIO_LED));
+    ESP_ERROR_CHECK(init_led());           // Inicializa el LED y chequea errores
+    while(1)
+    {        
+        vTaskDelay(pdMS_TO_TICKS(1000));  
+        ESP_ERROR_CHECK(blink_led());      // Cambia el LED y chequea errores
 
-    for (;;)
-    {
-        vTaskDelay(pdMS_TO_TICKS(INTERVALO_MS));
-        ESP_ERROR_CHECK(actualizar_estado());
+        ESP_LOGI(TAG, "Estado del led:%u", led_level); // Muestra el estado actual
+        count++;
+
+        if(count>30) count = 0;           // Reinicia contador después de 30
+
+        if(count<10){
+            ESP_LOGI(TAG,"LOG DE INFO");   // Log info
+        } else if (count<20){
+            ESP_LOGW(TAG, "LAG DE WARNING"); // Log warning
+        } else {
+            ESP_LOGE(TAG,"LOG DE ERROR");    // Log error
+        }   
     }
 }
