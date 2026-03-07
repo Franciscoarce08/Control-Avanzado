@@ -1,0 +1,13 @@
+menu "Blink Configuration"
+
+config BLINK_LOG_LEVEL
+    int "Log Level"
+    default 3
+    help
+        0 = None
+        1 = Error
+        2 = Warning
+        3 = Info
+        4 = Debug
+
+endmenu
